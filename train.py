@@ -90,7 +90,7 @@ class Trainer:
                 
         if show_log:
             print("Training finished")
-            print("Best epoch {:05d}, Val_loss: {:05.4f}".format(epoch-check_every_N,bst_loss))
+            print("Best epoch {:05d}, Val_loss: {:05.4f}".format(epoch-early_stopping,bst_loss))
         
         # Restore best model
         saver.restore(sess,"./"+saver_name)
@@ -178,7 +178,7 @@ class ConditionalTrainer(Trainer):
                 break
         if show_log:
             print("Training finished")
-            print("Best epoch {:05d}, Val_loss: {:05.4f}".format(epoch-check_every_N,bst_loss))
+            print("Best epoch {:05d}, Val_loss: {:05.4f}".format(epoch-early_stopping,bst_loss))
         # Restore best model
         saver.restore(sess,"./"+saver_name)
         # Remove model data if temporal model data was used
