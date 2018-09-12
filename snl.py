@@ -20,7 +20,7 @@ class SequentialNeuralLikelihood:
         self.all_models = None
 
     def learn_likelihood(self, obs_xs, model, trainer, sess, n_samples, n_rounds, train_on_all=True, 
-                         max_epochs=1000, batch_size=100,early_stopping=20, check_every_N=5, p_val=0.2,
+                         max_iterations=1000, batch_size=100,early_stopping=20, check_every_N=5, p_val=0.2,
                          thin=10, save_models=False,model_sufix="model",logger=sys.stdout,
                          rng=np.random):
         """
@@ -30,9 +30,9 @@ class SequentialNeuralLikelihood:
         :param n_samples: number of simulated samples per round
         :param n_rounds: number of rounds
         :param train_on_all: whether to train on all simulated samples or just on the latest batch
-        :param max_epochs: maximum number of epochs for training.
-        :param batch_size: batch size of each batch within an epoch.
-        :param early_stopping: number of epochs for early stopping criteria.
+        :param max_iterations: maximum number of iterations for training.
+        :param batch_size: batch size in each training iteration.
+        :param early_stopping: number of iterations for early stopping criteria.
         :param check_every_N: check every N iterations if model has improved and saves if so.
         :param p_val: percentage of training data randomly selected to be used for validation in each round.
         :param thin: number of samples to thin the chain
@@ -98,12 +98,12 @@ class SequentialNeuralLikelihood:
                 batch_size = ps.shape[0]-int(p_val*ps.shape[0])
             
             if save_models:
-                trainer.train(sess,(ps,xs),max_epochs=max_epochs, batch_size=batch_size,p_val=p_val,
+                trainer.train(sess,(ps,xs),max_iterations=max_iterations, batch_size=batch_size,p_val=p_val,
                               early_stopping=early_stopping, check_every_N=check_every_N, 
                               saver_name=model_sufix+str(i),show_log=True)
                 np.savez(model_sufix+'data.npz',ps=np.concatenate(self.all_ps),xs=np.concatenate(self.all_xs))
             else:
-                trainer.train(sess,(ps,xs),max_epochs=max_epochs, batch_size=batch_size,p_val=p_val,
+                trainer.train(sess,(ps,xs),max_iterations=max_iterations, batch_size=batch_size,p_val=p_val,
                               early_stopping=early_stopping, check_every_N=check_every_N,show_log=True)
             logger.write('training done\n')
 

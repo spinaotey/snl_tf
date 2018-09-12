@@ -58,7 +58,7 @@ class Trainer:
             self.train_op = optimizer(**optimizer_arguments).minimize(self.model.trn_loss)
             
             
-    def train(self, sess, train_data, val_data=None, p_val = 0.05, max_epochs=1000, batch_size=100,
+    def train(self, sess, train_data, val_data=None, p_val = 0.05, max_iterations=1000, batch_size=100,
               early_stopping=20, check_every_N=5, saver_name='tmp_model', show_log=False):
         """
         Training function to be called with desired parameters within a tensorflow session.
@@ -68,9 +68,9 @@ class Trainer:
              into p_val percent for validation randomly.  
         :param p_val: percentage of training data randomly selected to be used for validation if
              val_data is None.
-        :param max_epochs: maximum number of epochs for training.
-        :param batch_size: batch size of each batch within an epoch.
-        :param early_stopping: number of epochs for early stopping criteria.
+        :param max_iterations: maximum number of iterations for training.
+        :param batch_size: batch size in each training iteration.
+        :param early_stopping: number of iterations for early stopping criteria.
         :param check_every_N: check every N iterations if model has improved and saves if so.
         :param saver_name: string of name (with or without folder) where model is saved. If none is given,
             a temporal model is used to save and restore best model, and removed afterwards.
@@ -91,23 +91,22 @@ class Trainer:
         early_stopping_count = 0
         saver = tf.train.Saver()
         
+        # Batch index streamer
+        streamer = idx_streamer(train_data.shape[0],batch_size)
+        
         # Main training loop
-        for epoch in range(max_epochs):
-            # Shuffel training indices
-            rng.shuffle(train_idx)
-            for batch in range(len(train_idx)//batch_size):
-                # Last batch will have maximum number of elements possible
-                batch_idx = train_idx[batch*batch_size:np.min([(batch+1)*batch_size,len(train_idx)])]
-                if self.has_batch_norm:
-                    sess.run(self.train_op,feed_dict={self.model.input:train_data[batch_idx],self.model.training:True})
-                else:
-                    sess.run(self.train_op,feed_dict={self.model.input:train_data[batch_idx]})
+        for iteration in range(max_iterations):
+            batch_idx = streamer.gen()
+            if self.has_batch_norm:
+                sess.run(self.train_op,feed_dict={self.model.input:train_data[batch_idx],self.model.training:True})
+            else:
+                sess.run(self.train_op,feed_dict={self.model.input:train_data[batch_idx]})
             # Early stopping check
-            if epoch%check_every_N == 0:
+            if iteration%check_every_N == 0:
                 this_loss = sess.run(self.model.trn_loss,feed_dict={self.model.input:val_data})
                 if show_log:
                     train_loss = sess.run(self.model.trn_loss,feed_dict={self.model.input:train_data})
-                    print("Epoch {:05d}, Train_loss: {:05.4f}, Val_loss: {:05.4f}".format(epoch,train_loss,this_loss))
+                    print("Iteration {:05d}, Train_loss: {:05.4f}, Val_loss: {:05.4f}".format(iteration,train_loss,this_loss))
                 if this_loss < bst_loss:
                     bst_loss = this_loss
                     saver.save(sess,"./"+saver_name)
@@ -119,7 +118,7 @@ class Trainer:
                 
         if show_log:
             print("Training finished")
-            print("Best epoch {:05d}, Val_loss: {:05.4f}".format(epoch-early_stopping,bst_loss))
+            print("Best Iteration {:05d}, Val_loss: {:05.4f}".format(Iteration-early_stopping,bst_loss))
         
         # Restore best model
         saver.restore(sess,"./"+saver_name)
@@ -134,7 +133,7 @@ class ConditionalTrainer(Trainer):
     """
     Training class for the conditional MADEs/MAFs classes using a tensorflow optimizer.
     """           
-    def train(self, sess, train_data, val_data=None, p_val = 0.05, max_epochs=1000, batch_size=100,
+    def train(self, sess, train_data, val_data=None, p_val = 0.05, max_iterations=1000, batch_size=100,
               early_stopping=20, check_every_N=5, saver_name='tmp_model', show_log=False):
         """
         Training function to be called with desired parameters within a tensorflow session.
@@ -145,9 +144,9 @@ class ConditionalTrainer(Trainer):
             randomly.  
         :param p_val: percentage of training data randomly selected to be used for validation if
              val_data is None.
-        :param max_epochs: maximum number of epochs for training.
-        :param batch_size: batch size of each batch within an epoch.
-        :param early_stopping: number of epochs for early stopping criteria.
+        :param max_iterations: maximum number of iterations for training.
+        :param batch_size: batch size in each training iteration.
+        :param early_stopping: number of iterations for early stopping criteria.
         :param check_every_N: check every N iterations if model has improved and saves if so.
         :param saver_name: string of name (with or without folder) where model is saved. If none is given,
             a temporal model is used to save and restore best model, and removed afterwards.
@@ -175,28 +174,27 @@ class ConditionalTrainer(Trainer):
         early_stopping_count = 0
         saver = tf.train.Saver()
         
+        # Batch index streamer
+        streamer = idx_streamer(train_data.shape[0],batch_size)
+        
         # Main training loop
-        for epoch in range(max_epochs):
-            # Shuffel training indices
-            rng.shuffle(train_idx)
-            for batch in range(len(train_idx)//batch_size):
-                # Last batch will have maximum number of elements possible
-                batch_idx = train_idx[batch*batch_size:np.min([(batch+1)*batch_size,len(train_idx)])]
-                if self.has_batch_norm:
-                    sess.run(self.train_op,feed_dict={self.model.input:train_data_X[batch_idx],
-                                                      self.model.y:train_data_Y[batch_idx],
-                                                      self.model.training:True})
-                else:
-                    sess.run(self.train_op,feed_dict={self.model.input:train_data_X[batch_idx],
-                                                      self.model.y:train_data_Y[batch_idx]})
+        for iteration in range(max_iterations):
+            batch_idx = streamer.gen()
+            if self.has_batch_norm:
+                sess.run(self.train_op,feed_dict={self.model.input:train_data_X[batch_idx],
+                                                  self.model.y:train_data_Y[batch_idx],
+                                                  self.model.training:True})
+            else:
+                sess.run(self.train_op,feed_dict={self.model.input:train_data_X[batch_idx],
+                                                  self.model.y:train_data_Y[batch_idx]})
             # Early stopping check
-            if epoch%check_every_N == 0:
+            if iteration%check_every_N == 0:
                 this_loss = sess.run(self.model.trn_loss,feed_dict={self.model.input:val_data_X,
                                                                     self.model.y:val_data_Y})
                 if show_log:
                     train_loss = sess.run(self.model.trn_loss,feed_dict={self.model.input:train_data_X,
                                                                          self.model.y:train_data_Y})
-                    print("Epoch {:05d}, Train_loss: {:05.4f}, Val_loss: {:05.4f}".format(epoch,train_loss,this_loss))
+                    print("Iteration {:05d}, Train_loss: {:05.4f}, Val_loss: {:05.4f}".format(iteration,train_loss,this_loss))
                 if this_loss < bst_loss:
                     bst_loss = this_loss
                     saver.save(sess,"./"+saver_name)
@@ -207,7 +205,7 @@ class ConditionalTrainer(Trainer):
                 break
         if show_log:
             print("Training finished")
-            print("Best epoch {:05d}, Val_loss: {:05.4f}".format(epoch-early_stopping,bst_loss))
+            print("Best iteration {:05d}, Val_loss: {:05.4f}".format(iteration-early_stopping,bst_loss))
         # Restore best model
         saver.restore(sess,"./"+saver_name)
         # Remove model data if temporal model data was used
