@@ -19,8 +19,10 @@ class SequentialNeuralLikelihood:
         self.all_xs = None
         self.all_models = None
 
-    def learn_likelihood(self, obs_xs, model, trainer, sess, n_samples, n_rounds, train_on_all=True, thin=10, 
-                         save_models=False, model_sufix="model",logger=sys.stdout, rng=np.random):
+    def learn_likelihood(self, obs_xs, model, trainer, sess, n_samples, n_rounds, train_on_all=True, 
+                         max_epochs=1000, batch_size=100,early_stopping=20, check_every_N=5, p_val=0.2,
+                         thin=10, save_models=False,model_sufix="model",logger=sys.stdout,
+                         rng=np.random):
         """
         :param obs_xs: the observed data
         :param model: the model to train
@@ -28,6 +30,11 @@ class SequentialNeuralLikelihood:
         :param n_samples: number of simulated samples per round
         :param n_rounds: number of rounds
         :param train_on_all: whether to train on all simulated samples or just on the latest batch
+        :param max_epochs: maximum number of epochs for training.
+        :param batch_size: batch size of each batch within an epoch.
+        :param early_stopping: number of epochs for early stopping criteria.
+        :param check_every_N: check every N iterations if model has improved and saves if so.
+        :param p_val: percentage of training data randomly selected to be used for validation in each round.
         :param thin: number of samples to thin the chain
         :param logger: logs messages
         :param rng: random number generator
@@ -37,6 +44,12 @@ class SequentialNeuralLikelihood:
         self.all_ps = []
         self.all_xs = []
         self.all_models = []
+        
+        if batch_size == 'all':
+            use_all = True
+        else:
+            use_all = False
+            
 
         log_posterior = lambda t: l_posterior_f(self.prior,model,sess,t,obs_xs)
         sampler = mcmc.SliceSampler(self.prior.gen(), log_posterior, thin=thin)
@@ -81,11 +94,17 @@ class SequentialNeuralLikelihood:
 
             # retrain likelihood model
             logger.write('training model...\n')
+            if use_all:
+                batch_size = ps.shape[0]-int(p_val*ps.shape[0])
+            
             if save_models:
-                trainer.train(sess,(ps,xs),saver_name=model_sufix+str(i),show_log=True)
+                trainer.train(sess,(ps,xs),max_epochs=max_epochs, batch_size=batch_size,p_val=p_val,
+                              early_stopping=early_stopping, check_every_N=check_every_N, 
+                              saver_name=model_sufix+str(i),show_log=True)
                 np.savez(model_sufix+'data.npz',ps=np.concatenate(self.all_ps),xs=np.concatenate(self.all_xs))
             else:
-                trainer.train(sess,(ps,xs),show_log=True)
+                trainer.train(sess,(ps,xs),max_epochs=max_epochs, batch_size=batch_size,p_val=p_val,
+                              early_stopping=early_stopping, check_every_N=check_every_N,show_log=True)
             logger.write('training done\n')
 
 def l_posterior_f(prior,model,sess,t,obs_xs):
