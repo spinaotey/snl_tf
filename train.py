@@ -3,6 +3,35 @@ import numpy as np
 import numpy.random as rng
 import os
 
+class idx_streamer:
+    """
+    Index streaming class to get randomized batch size indices samples in a uniform way (using epochs).
+    """
+    def __init__(self,N,batch_size):
+        """
+        Constructor defining streamer parameters.
+        :param N: total number of samples.
+        :param batch_size: batch size that the streamer has to generate.
+        """
+        self.N = N
+        self.sequence = np.arange(N)
+        self.batch_size = batch_size
+        self.stream = []
+        self.epoch = -1
+    
+    def gen(self):
+        """
+        Index stream generation function. Outputs next batch indices.
+        :return: List of batch indices.
+        """
+        while len(self.stream) < self.batch_size:
+            rng.shuffle(self.sequence)
+            self.stream += list(self.sequence)
+            self.epoch +=1
+        stream = self.stream[:self.batch_size]
+        self.stream = self.stream[self.batch_size:]
+        return stream
+
 class Trainer:
     """
     Training class for the standard MADEs/MAFs classes using a tensorflow optimizer.
