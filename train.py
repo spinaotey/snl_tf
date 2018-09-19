@@ -46,16 +46,11 @@ class Trainer:
         
         self.model = model
         
-        # If the model has batch norm and it is activated, update operations on moving
-        # mean and moving average have to be added to the training operation
         if hasattr(self.model,'batch_norm') and self.model.batch_norm is True:
             self.has_batch_norm = True
-            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-            with tf.control_dependencies(update_ops):
-                self.train_op = optimizer(**optimizer_arguments).minimize(self.model.trn_loss)
         else:
             self.has_batch_norm = False
-            self.train_op = optimizer(**optimizer_arguments).minimize(self.model.trn_loss)
+        self.train_op = optimizer(**optimizer_arguments).minimize(self.model.trn_loss)
             
             
     def train(self, sess, train_data, val_data=None, p_val = 0.05, max_iterations=1000, batch_size=100,
@@ -103,6 +98,8 @@ class Trainer:
                 sess.run(self.train_op,feed_dict={self.model.input:train_data[batch_idx]})
             # Early stopping check
             if iteration%check_every_N == 0:
+                if self.has_batch_norm:
+                    self.model.update_batch_norm(train_data,sess)
                 this_loss = sess.run(self.model.trn_loss,feed_dict={self.model.input:val_data})
                 if show_log:
                     train_loss = sess.run(self.model.trn_loss,feed_dict={self.model.input:train_data})
@@ -119,9 +116,11 @@ class Trainer:
         if show_log:
             print("Training finished")
             print("Best Iteration {:05d}, Val_loss: {:05.4f}".format(Iteration-early_stopping,bst_loss))
-        
-        # Restore best model
+        # Restore best model and save batch norm mean and variance if necessary
         saver.restore(sess,"./"+saver_name)
+        if self.has_batch_norm:
+            self.model.update_batch_norm(train_data,sess)
+        
         # Remove model data if temporal model data was used
         if saver_name == 'tmp_model':
             for file in os.listdir("./"):
@@ -189,6 +188,8 @@ class ConditionalTrainer(Trainer):
                                                   self.model.y:train_data_Y[batch_idx]})
             # Early stopping check
             if iteration%check_every_N == 0:
+                if self.has_batch_norm:
+                    self.model.update_batch_norm([train_data_X,train_data_Y],sess)
                 this_loss = sess.run(self.model.trn_loss,feed_dict={self.model.input:val_data_X,
                                                                     self.model.y:val_data_Y})
                 if show_log:
@@ -206,8 +207,10 @@ class ConditionalTrainer(Trainer):
         if show_log:
             print("Training finished")
             print("Best iteration {:05d}, Val_loss: {:05.4f}".format(iteration-early_stopping,bst_loss))
-        # Restore best model
+        # Restore best model  and save batch norm mean and variance if necessary
         saver.restore(sess,"./"+saver_name)
+        if self.has_batch_norm:
+                    self.model.update_batch_norm([train_data_X,train_data_Y],sess)
         # Remove model data if temporal model data was used
         if saver_name == 'tmp_model':
             for file in os.listdir("./"):
