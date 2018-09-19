@@ -56,6 +56,8 @@ class MaskedAutoregressiveFlow:
 
         self.mades = []
         self.bns = []
+        self.moments = []
+        self.assign_bns = []
         self.u = self.input
         self.logdet_dudx = 0.0
 
@@ -65,6 +67,7 @@ class MaskedAutoregressiveFlow:
             made = mades.GaussianMade(n_inputs, n_hiddens, act_fun, input_order, mode, self.u)
             self.mades.append(made)
             self.parms += made.parms
+            # invert input order
             input_order = input_order if input_order == 'random' else made.input_order[::-1]
 
             # inverse autoregressive transform
@@ -74,12 +77,16 @@ class MaskedAutoregressiveFlow:
             # batch normalization
             if batch_norm:
                 bn = BatchNormalizationExt(momentum=self.momentum)
-                v_tmp = tf.nn.moments(self.u,[0])[1]
+                moments = tf.nn.moments(self.u,[0])
+                v_tmp = moments[1]
                 self.u = bn.apply(self.u,training=self.training)
                 self.parms += [bn.gamma,bn.beta]
                 v_tmp = tf.cond(self.training,lambda:v_tmp,lambda:bn.moving_variance)
                 self.logdet_dudx += tf.reduce_sum(tf.log(bn.gamma)) - 0.5 * tf.reduce_sum(tf.log(v_tmp+1e-5))
                 self.bns.append(bn)
+                self.moments.append(moments)
+                self.assign_bns.append(tf.assign(bn.moving_mean,moments[0]))
+                self.assign_bns.append(tf.assign(bn.moving_variance,moments[1]))
 
         self.input_order = self.mades[0].input_order
 
@@ -90,18 +97,30 @@ class MaskedAutoregressiveFlow:
         # train objective
         self.trn_loss = -tf.reduce_mean(self.L,name='trn_loss')
 
-    def eval(self, x, sess, log=True):
+    def eval(self, x, sess, log=True, training=False):
         """
         Evaluate log probabilities for given inputs.
         :param x: data matrix where rows are inputs
         :param sess: tensorflow session where the graph is run
         :param log: whether to return probabilities in the log domain
+        :param training: in training, data mean and variance is used for batchnorm
+                         while outside training the saved mean and variance is used
         :return: list of log probabilities log p(x)
         """        
 
-        lprob = sess.run(self.L,feed_dict={self.input:x})
+        lprob = sess.run(self.L,feed_dict={self.input:x,self.training:training})
 
         return lprob if log else np.exp(lprob)
+    
+    def update_batch_norm(self,x,sess):
+        """
+        Updates batch normalization moments with the values obtained in data set x.
+        :param x: data matrix whose moments will be used for the update
+        :param sess: tensorflow session where the graph is run
+        :return: None
+        """
+        sess.run(self.assign_bns,feed_dict={self.input:x,self.training:True})
+        
 
     def gen(self, sess, n_samples=1, u=None):
         """
@@ -176,6 +195,8 @@ class ConditionalMaskedAutoregressiveFlow:
 
         self.mades = []
         self.bns = []
+        self.moments = []
+        self.assign_bns = []
         self.u = self.y
         self.logdet_dudy = 0.0
 
@@ -195,12 +216,16 @@ class ConditionalMaskedAutoregressiveFlow:
             # batch normalization
             if batch_norm:
                 bn = BatchNormalizationExt(momentum=self.momentum)
-                v_tmp = tf.nn.moments(self.u,[0])[1]
+                moments = tf.nn.moments(self.u,[0])
+                v_tmp = moments[1]
                 self.u = bn.apply(self.u,training=self.training)
                 self.parms += [bn.gamma,bn.beta]
                 v_tmp = tf.cond(self.training,lambda:v_tmp,lambda:bn.moving_variance)
                 self.logdet_dudy += tf.reduce_sum(tf.log(bn.gamma)) - 0.5 * tf.reduce_sum(tf.log(v_tmp+1e-5))
                 self.bns.append(bn)
+                self.moments.append(moments)
+                self.assign_bns.append(tf.assign(bn.moving_mean,moments[0]))
+                self.assign_bns.append(tf.assign(bn.moving_variance,moments[1]))
 
         self.output_order = self.mades[0].output_order
 
@@ -211,19 +236,31 @@ class ConditionalMaskedAutoregressiveFlow:
         # train objective
         self.trn_loss = -tf.reduce_mean(self.L,name='trn_loss')
 
-    def eval(self, xy, sess, log=True):
+    def eval(self, xy, sess, log=True, training=False):
         """
         Evaluate log probabilities for given input-output pairs.
         :param xy: a pair (x, y) where x rows are inputs and y rows are outputs
         :param sess: tensorflow session where the graph is run
         :param log: whether to return probabilities in the log domain
+        :param training: in training, data mean and variance is used for batchnorm
+                         while outside training the saved mean and variance is used
         :return: log probabilities: log p(y|x)
         """
         
         x, y = xy
-        lprob = sess.run(self.L,feed_dict={self.input:x,self.y:y})
+        lprob = sess.run(self.L,feed_dict={self.input:x,self.y:y,self.training:training})
 
         return lprob if log else np.exp(lprob)
+    
+    def update_batch_norm(self,xy,sess):
+        """
+        Updates batch normalization moments with the values obtained in data set x.
+        :param x: data matrix whose moments will be used for the update
+        :param sess: tensorflow session where the graph is run
+        :return: None
+        """
+        x, y = xy
+        sess.run(self.assign_bns,feed_dict={self.input:x,self.y:y,self.training:True})
 
     def gen(self, x, sess, n_samples=1, u=None):
         """
