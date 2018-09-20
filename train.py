@@ -174,7 +174,7 @@ class ConditionalTrainer(Trainer):
         saver = tf.train.Saver()
         
         # Batch index streamer
-        streamer = idx_streamer(train_data.shape[0],batch_size)
+        streamer = idx_streamer(train_data_X.shape[0],batch_size)
         
         # Main training loop
         for iteration in range(max_iterations):
