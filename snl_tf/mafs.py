@@ -2,7 +2,7 @@ import numpy as np
 import numpy.random as rng
 import tensorflow as tf
 
-import mades
+from snl_tf import mades
 
 dtype = tf.float32
 

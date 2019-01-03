@@ -1,9 +1,7 @@
 import sys
 import numpy as np
-from scipy.misc import logsumexp
-from train import ConditionalTrainer
-import mcmc
-import simulators
+from snl_tf.train import ConditionalTrainer
+from snl_tf import mcmc,simulators 
 
 class SequentialNeuralLikelihood:
     """
