@@ -50,7 +50,16 @@ class Trainer:
             self.has_batch_norm = True
         else:
             self.has_batch_norm = False
-        self.train_op = optimizer(**optimizer_arguments).minimize(self.model.trn_loss)
+        self.optimizer = optimizer(**optimizer_arguments)
+        self.train_op = self.optimizer.minimize(self.model.trn_loss)
+
+    def resetOptimizer(self,sess):
+        """
+        Resets optimizer variables in current tensorflow session
+        :param sess: tensorflow session where the graph is run
+        """
+        sess.run(tf.variables_initializer(self.optimizer.variables()))
+
             
             
     def train(self, sess, train_data, val_data=None, p_val = 0.05, max_iterations=1000, batch_size=100,

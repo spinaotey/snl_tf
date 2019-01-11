@@ -92,6 +92,7 @@ class SequentialNeuralLikelihood:
 
             # retrain likelihood model
             logger.write('training model...\n')
+            trainer.resetOptimizer(sess)
             if use_all:
                 batch_size = ps.shape[0]-int(p_val*ps.shape[0])
             
