@@ -106,5 +106,14 @@ class SequentialNeuralLikelihood:
             logger.write('training done\n')
 
 def l_posterior_f(prior,model,sess,t,obs_xs):
+    """
+    Computes log posterior probability of paramters `t` for a tensorflow
+    model given observed data points `obs_xs`.
+    :param prior: distribution to evaluate prior parameter density
+    :param model: the model to evaluate the posterior
+    :param sess: tensorflow session where the model is run
+    :param obs_xs: observed data to evaluate posterior
+    :return: loglikelihood of the model given observed values at parameter t
+    """
     vt = np.repeat([t],obs_xs.shape[0],axis=0)
     return model.eval([vt, obs_xs],sess).sum() + prior.eval(t)
