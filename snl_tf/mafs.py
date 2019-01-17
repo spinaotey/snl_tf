@@ -261,7 +261,7 @@ class WeightedMaskedAutoregressiveFlow:
                         self.logdet_dudx,name='L')
 
         # train objective
-        self.trn_loss = -tf.divide(tf.reduce_sum(self.weights*self.L),tf.reduce_sum(self.weights),name='trn_loss')
+        self.trn_loss = -tf.reduce_mean(self.weights*self.L,name='trn_loss')
 
     def eval(self, x, sess, log=True, training=False):
         """

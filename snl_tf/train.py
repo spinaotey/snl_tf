@@ -115,7 +115,7 @@ class Trainer:
                     print("Iteration {:05d}, Train_loss: {:05.4f}, Val_loss: {:05.4f}".format(iteration,train_loss,this_loss))
                 if this_loss < bst_loss:
                     bst_loss = this_loss
-                    saver.save(sess,"./"+saver_name)
+                    saver.save(sess,saver_name)
                     early_stopping_count = 0
                 else:
                     early_stopping_count += check_every_N
@@ -126,7 +126,7 @@ class Trainer:
             print("Training finished")
             print("Best Iteration {:05d}, Val_loss: {:05.4f}".format(iteration-early_stopping,bst_loss))
         # Restore best model and save batch norm mean and variance if necessary
-        saver.restore(sess,"./"+saver_name)
+        saver.restore(sess,saver_name)
         if self.has_batch_norm:
             self.model.update_batch_norm(train_data,sess)
         
@@ -207,7 +207,7 @@ class ConditionalTrainer(Trainer):
                     print("Iteration {:05d}, Train_loss: {:05.4f}, Val_loss: {:05.4f}".format(iteration,train_loss,this_loss))
                 if this_loss < bst_loss:
                     bst_loss = this_loss
-                    saver.save(sess,"./"+saver_name)
+                    saver.save(sess,saver_name)
                     early_stopping_count = 0
                 else:
                     early_stopping_count += check_every_N
@@ -217,7 +217,7 @@ class ConditionalTrainer(Trainer):
             print("Training finished")
             print("Best iteration {:05d}, Val_loss: {:05.4f}".format(iteration-early_stopping,bst_loss))
         # Restore best model  and save batch norm mean and variance if necessary
-        saver.restore(sess,"./"+saver_name)
+        saver.restore(sess,saver_name)
         if self.has_batch_norm:
                     self.model.update_batch_norm([train_data_X,train_data_Y],sess)
         # Remove model data if temporal model data was used
@@ -291,7 +291,7 @@ class WeightedTrainer(Trainer):
                     print("Iteration {:05d}, Train_loss: {:05.4f}, Val_loss: {:05.4f}".format(iteration,train_loss,this_loss))
                 if this_loss < bst_loss:
                     bst_loss = this_loss
-                    saver.save(sess,"./"+saver_name)
+                    saver.save(sess,saver_name)
                     early_stopping_count = 0
                 else:
                     early_stopping_count += check_every_N
@@ -302,7 +302,7 @@ class WeightedTrainer(Trainer):
             print("Training finished")
             print("Best Iteration {:05d}, Val_loss: {:05.4f}".format(iteration-early_stopping,bst_loss))
         # Restore best model and save batch norm mean and variance if necessary
-        saver.restore(sess,"./"+saver_name)
+        saver.restore(sess,saver_name)
         if self.has_batch_norm:
             self.model.update_batch_norm(train_data,sess)
         
@@ -390,7 +390,7 @@ class WeightedConditionalTrainer(Trainer):
                     print("Iteration {:05d}, Train_loss: {:05.4f}, Val_loss: {:05.4f}".format(iteration,train_loss,this_loss))
                 if this_loss < bst_loss:
                     bst_loss = this_loss
-                    saver.save(sess,"./"+saver_name)
+                    saver.save(sess,saver_name)
                     early_stopping_count = 0
                 else:
                     early_stopping_count += check_every_N
@@ -400,7 +400,7 @@ class WeightedConditionalTrainer(Trainer):
             print("Training finished")
             print("Best iteration {:05d}, Val_loss: {:05.4f}".format(iteration-early_stopping,bst_loss))
         # Restore best model  and save batch norm mean and variance if necessary
-        saver.restore(sess,"./"+saver_name)
+        saver.restore(sess,saver_name)
         if self.has_batch_norm:
                     self.model.update_batch_norm([train_data_X,train_data_Y],sess)
         # Remove model data if temporal model data was used
