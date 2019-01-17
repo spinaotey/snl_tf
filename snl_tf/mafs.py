@@ -77,7 +77,6 @@ class MaskedAutoregressiveFlow:
         self.act_fun = act_fun
         self.n_mades = n_mades
         self.batch_norm = batch_norm
-        self.momentum = momentum
         self.mode = mode
 
         self.input = tf.placeholder(dtype=dtype,shape=[None,n_inputs],name='x') if input is None else input
