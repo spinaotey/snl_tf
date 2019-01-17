@@ -357,11 +357,16 @@ class ConditionalMaskedAutoregressiveFlow:
         self.parms = []
 
         self.mades = []
-        self.bns = []
-        self.moments = []
-        self.assign_bns = []
         self.u = self.y
         self.logdet_dudy = 0.0
+        
+        if batch_norm:
+            self.bns = []
+            self.bn_means = []
+            self.bn_vars = []
+            self.update_means = tf.placeholder(dtype=dtype,shape=[n_mades,n_outputs],name='update_means')
+            self.update_vars = tf.placeholder(dtype=dtype,shape=[n_mades,n_outputs],name='update_vars')
+            self.assign_bns = []
 
         for i in range(n_mades):
 
@@ -386,9 +391,11 @@ class ConditionalMaskedAutoregressiveFlow:
                 v_tmp = tf.cond(self.training,lambda:v_tmp,lambda:bn.variance)
                 self.logdet_dudy += tf.reduce_sum(bn.loggamma) - 0.5 * tf.reduce_sum(tf.log(v_tmp+1e-5))
                 self.bns.append(bn)
-                self.moments.append(moments)
-                self.assign_bns.append(tf.assign(bn.mean,moments[0]))
-                self.assign_bns.append(tf.assign(bn.variance,moments[1]))
+                self.bn_means.append(moments[0])
+                self.bn_vars.append(moments[1])
+                self.assign_bns.append(tf.assign(bn.mean,self.update_means[i]))
+                self.assign_bns.append(tf.assign(bn.variance,self.update_vars[i]))
+
 
         self.output_order = self.mades[0].output_order
 
@@ -399,7 +406,7 @@ class ConditionalMaskedAutoregressiveFlow:
         # train objective
         self.trn_loss = -tf.reduce_mean(self.L,name='trn_loss')
 
-    def eval(self, xy, sess, log=True, training=False):
+    def eval(self, xy, sess, log=True, training=False,batch_size=100000):
         """
         Evaluate log probabilities for given input-output pairs.
         :param xy: a pair (x, y) where x rows are inputs and y rows are outputs
@@ -407,23 +414,58 @@ class ConditionalMaskedAutoregressiveFlow:
         :param log: whether to return probabilities in the log domain
         :param training: in training, data mean and variance is used for batchnorm
                          while outside training the saved mean and variance is used
+        :param batch_size: number of samples to be evaluated in one batch
         :return: log probabilities: log p(y|x)
         """
         
         x, y = xy
-        lprob = sess.run(self.L,feed_dict={self.input:x,self.y:y,self.training:training})
+        n = len(y)//batch_size
+        lprob = []
+        for i in range(n):
+            lprob.append(sess.run(self.L,feed_dict={self.input:x[i*batch_size:(i+1)*batch_size],
+                                                    self.y:y[i*batch_size:(i+1)*batch_size],
+                                                    self.training:training}))
+        
+        if n != len(y)/batch_size:
+            lprob.append(sess.run(self.L,feed_dict={self.input:x[n*batch_size:],
+                                                    self.y:y[n*batch_size:],
+                                                    self.training:training}))
+        
+        lprob = np.row_stack(lprob)
 
         return lprob if log else np.exp(lprob)
     
-    def update_batch_norm(self,xy,sess):
+    def update_batch_norm(self,xy,sess,batch_size=100000):
         """
         Updates batch normalization moments with the values obtained in data set x.
         :param x: data matrix whose moments will be used for the update
         :param sess: tensorflow session where the graph is run
+        :param batch_size: batch size to compute temporal mean and variances of bn
         :return: None
         """
         x, y = xy
-        sess.run(self.assign_bns,feed_dict={self.input:x,self.y:y,self.training:True})
+        tmp_mean = np.zeros((self.n_mades,self.n_outputs),dtype=np.float32)
+        tmp_var = np.zeros((self.n_mades,self.n_outputs),dtype=np.float32)
+        n = len(y)//batch_size
+        for i in range(n):
+            m,v = sess.run([self.bn_means,self.bn_vars],
+                           feed_dict={self.input:x[i*batch_size:(i+1)*batch_size],
+                                      self.y:y[i*batch_size:(i+1)*batch_size],
+                                      self.training:True})
+            tmp_mean += np.row_stack(m)
+            tmp_var += np.row_stack(v)
+        
+        if n != len(y)/batch_size:
+            m,v = sess.run([self.bn_means,self.bn_vars],
+                           feed_dict={self.input:x[n*batch_size:],self.y:y[n*batch_size:],
+                                      self.training:True})
+            tmp_mean += np.row_stack(m)
+            tmp_var += np.row_stack(v)
+            n = n + 1
+        tmp_mean /= n
+        tmp_var /= n
+        
+        sess.run(self.assign_bns,feed_dict={self.update_means:tmp_mean,self.update_vars:tmp_var})
 
     def gen(self, x, sess, n_samples=1, u=None):
         """

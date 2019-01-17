@@ -199,11 +199,10 @@ class ConditionalTrainer(Trainer):
             if iteration%check_every_N == 0:
                 if self.has_batch_norm:
                     self.model.update_batch_norm([train_data_X,train_data_Y],sess)
-                this_loss = sess.run(self.model.trn_loss,feed_dict={self.model.input:val_data_X,
-                                                                    self.model.y:val_data_Y})
+                this_loss = -self.model.eval([val_data_X,val_data_Y],sess).mean()
+                
                 if show_log:
-                    train_loss = sess.run(self.model.trn_loss,feed_dict={self.model.input:train_data_X,
-                                                                         self.model.y:train_data_Y})
+                    train_loss = -self.model.eval([train_data_X,train_data_Y],sess).mean()
                     print("Iteration {:05d}, Train_loss: {:05.4f}, Val_loss: {:05.4f}".format(iteration,train_loss,this_loss))
                 if this_loss < bst_loss:
                     bst_loss = this_loss
