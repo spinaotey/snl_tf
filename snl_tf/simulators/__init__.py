@@ -51,6 +51,32 @@ def sim_data(gen_params, sim_model, n_samples=None, rng=np.random):
 
     return ps, xs
 
+def rw_data(gen_params, reweighter,nominal_samples, n_samples=None, rng=np.random):
+    """
+    Simulates a and returns a given number of samples from the simulator.
+    Takes care of failed simulations, and guarantees the exact number of requested samples will be returned.
+    If number of samples is None, it returns one sample.
+    """
+
+    if n_samples is None:
+        ps, xs, ws = sim_data(gen_params, sim_model, n_samples=1, rng=rng)
+        return ps[0], xs[0], ws[0]
+
+    assert n_samples > 0
+
+    ps = None
+    xs = None
+    ws = None
+    
+    ps = gen_params(n_samples, rng=rng)
+    idx = rng.choice(np.arange(len(nominal_samples)),size=n_samples)
+    xs = nominal_samples[idx]
+    ws = reweighter(ps,xs)
+
+    assert ps.shape[0] == xs.shape[0] ==  ws.shape[0] == n_samples
+
+    return ps, xs, ws
+    
 
 def gaussian_synthetic_likelihood(px, sim_model, log=True, n_sims=100, rng=np.random):
     """
